@@ -1,0 +1,666 @@
+openapi: 3.0.0
+info:
+  title: Bible API
+  description: Complete Bible API with multiple versions support (KJV, NIV, ESV, Tamil, Hindi)
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@bibleapi.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://{host}:{port}
+    description: Dynamic server - Replace with your server IP
+    variables:
+      host:
+        default: localhost
+        description: Server hostname or IP address
+      port:
+        default: "3000"
+        description: Server port
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.bible.com/v1
+    description: Production server
+
+tags:
+  - name: Basic Lookup
+    description: Basic verse, chapter, and book lookup
+  - name: Search
+    description: Text search and word analysis
+  - name: Comparison
+    description: Compare verses across versions
+  - name: Statistics
+    description: Bible statistics and analysis
+  - name: Export
+    description: Export Bible content
+  - name: Daily
+    description: Daily verse and random selections
+
+paths:
+  /:
+    get:
+      summary: API Information
+      tags: [Basic Lookup]
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  documentation:
+                    type: string
+                  availableVersions:
+                    type: array
+                    items:
+                      type: string
+
+  /{version}/verse/{book}/{chapter}/{verse}:
+    get:
+      summary: Get single verse
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+          description: Bible version
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Book short name (e.g., JHN, GEN, PSA)
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Chapter number
+        - name: verse
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Verse number
+      responses:
+        '200':
+          description: Verse found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version_code:
+                    type: string
+                  book_short_name:
+                    type: string
+                  book_name:
+                    type: string
+                  chapter_num:
+                    type: integer
+                  verse_num:
+                    type: integer
+                  verse:
+                    type: string
+        '404':
+          description: Version or verse not found
+      example:
+        summary: Get John 3:16 from KJV
+        value:
+          version_code: KJV
+          book_short_name: JHN
+          book_name: John
+          chapter_num: 3
+          verse_num: 16
+          verse: "For God so loved the world, that he gave his only begotten Son..."
+
+  /{version}/chapter/{book}/{chapter}:
+    get:
+      summary: Get complete chapter
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Chapter found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  book:
+                    type: string
+                  chapter:
+                    type: integer
+                  total_verses:
+                    type: integer
+                  verses:
+                    type: array
+
+  /{version}/book/{book}:
+    get:
+      summary: Get complete book
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Book found
+
+  /{version}/search/{keyword}:
+    get:
+      summary: Search text in Bible
+      tags: [Search]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Search results
+
+  /compare/{book}/{chapter}/{verse}:
+    get:
+      summary: Compare verse across all versions
+      tags: [Comparison]
+      parameters:
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verse
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comparison results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  book:
+                    type: string
+                  chapter:
+                    type: integer
+                  verse:
+                    type: integer
+                  versions:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+  /books:
+    get:
+      summary: List all books
+      tags: [Basic Lookup]
+      responses:
+        '200':
+          description: List of all books
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    book_number:
+                      type: integer
+                    book_name:
+                      type: string
+                    book_short_name:
+                      type: string
+                    testament_name:
+                      type: string
+                    category_name:
+                      type: string
+                    chapter_count:
+                      type: integer
+                    total_verses:
+                      type: integer
+
+  /book/{book}:
+    get:
+      summary: Get book information
+      tags: [Basic Lookup]
+      parameters:
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Book information
+
+  /multi-verse/{book}/{chapter}/{verse}:
+    get:
+      summary: Get verse from multiple versions
+      tags: [Comparison]
+      parameters:
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verse
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: versions
+          in: query
+          schema:
+            type: string
+          description: Comma-separated versions (e.g., kjv,tam)
+      responses:
+        '200':
+          description: Multi-version verse
+
+  /random/{version}:
+    get:
+      summary: Get random verse
+      tags: [Daily]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+      responses:
+        '200':
+          description: Random verse
+
+  /verse-of-day:
+    get:
+      summary: Get verse of the day
+      tags: [Daily]
+      responses:
+        '200':
+          description: Verse of the day
+
+  /statistics/{version}:
+    get:
+      summary: Get Bible statistics
+      tags: [Statistics]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, niv, esv, tam, hin]
+      responses:
+        '200':
+          description: Statistics for the version
+
+  /{version}/word-search/{word}:
+    get:
+      summary: Word search with analysis
+      tags: [Search]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: word
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Word search results
+
+  /parallel/{book}/{chapter}/{verse}:
+    get:
+      summary: Compare two versions side by side
+      tags: [Comparison]
+      parameters:
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verse
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version1
+          in: query
+          schema:
+            type: string
+            default: kjv
+        - name: version2
+          in: query
+          schema:
+            type: string
+            default: tam
+      responses:
+        '200':
+          description: Parallel comparison
+
+  /{version}/range/{book}/{startChapter}/{startVerse}/{endChapter}/{endVerse}:
+    get:
+      summary: Get verse range
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: startChapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: startVerse
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: endChapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: endVerse
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Verse range
+
+  /{version}/testament/{testament}:
+    get:
+      summary: Get verses by testament
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: testament
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [Old, New]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Verses by testament
+
+  /{version}/category/{category}:
+    get:
+      summary: Get verses by category
+      tags: [Basic Lookup]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [Law, History, Poetry, Prophecy, Gospel, Epistle]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Verses by category
+
+  /export/{version}/{book}:
+    get:
+      summary: Export book
+      tags: [Export]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+      responses:
+        '200':
+          description: Book exported
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+
+  /summary/{version}:
+    get:
+      summary: Get summary report
+      tags: [Statistics]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Summary report
+
+  /{version}/fts/{keyword}:
+    get:
+      summary: Full text search
+      tags: [Search]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Full text search results
+
+  /{version}/advanced-search/{keyword}:
+    get:
+      summary: Advanced search with filters
+      tags: [Search]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: query
+          schema:
+            type: string
+        - name: chapter
+          in: query
+          schema:
+            type: integer
+        - name: testament
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Advanced search results
+
+  /{version}/book-summary/{book}:
+    get:
+      summary: Get book chapter summary
+      tags: [Statistics]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Book chapter summary
+
+  /{version}/verse-stats/{book}/{chapter}:
+    get:
+      summary: Get verse statistics for a chapter
+      tags: [Statistics]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Verse statistics
+
+  /version-stats:
+    get:
+      summary: Compare statistics across all versions
+      tags: [Statistics]
+      responses:
+        '200':
+          description: All versions statistics
