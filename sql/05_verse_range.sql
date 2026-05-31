@@ -10,7 +10,7 @@ SELECT
 FROM {{verse_table}} v
 JOIN {{book_table}} b ON b.{{book_pk}} = v.{{verse_fk}}
 JOIN book_details bd ON bd.book_details_pk = b.book_details_fk
-WHERE b.book_short_name = :book_short_name
+WHERE bd.book_global_id = :book_short_name
 AND (
     (v.chapter_num = :start_chapter AND v.verse_num >= :start_verse)
     OR (v.chapter_num > :start_chapter AND v.chapter_num < :end_chapter)

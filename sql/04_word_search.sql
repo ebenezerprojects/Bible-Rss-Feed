@@ -22,4 +22,3 @@ WHERE LOWER(v.verse) LIKE LOWER('%' || :keyword || '%')
 {{book_filter}}
 {{range_filter}}
 ORDER BY position, bd.book_number, v.chapter_num, v.verse_num
-LIMIT :limit
