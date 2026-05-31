@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <BibleShowData>
-    <TimeCode>1778666332886</TimeCode>
-    <Reference>John 3:16 (KJV)</Reference>
-    <Scripture>For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.</Scripture>
+    <TimeCode>1780195140116</TimeCode>
+    <Reference>சங்கீதம் 23:3 (TAOVBSI)</Reference>
+    <Scripture>அவர் என் ஆத்துமாவைத் தேற்றி, தம்முடைய நாமத்தினிமித்தம் என்னை நீதியின் பாதைகளில் நடத்துகிறார்.</Scripture>
     <ImagePath></ImagePath>
-    <BibleVersion>KJV</BibleVersion>
+    <BibleVersion>TAOVBSI</BibleVersion>
     <BibleCopyright>Public Domain</BibleCopyright>
     <BibleLanguage>English</BibleLanguage>
-    <BookName>John</BookName>
-    <BookTitle>John</BookTitle>
-    <BookAbbreviation>JHN.</BookAbbreviation>
-    <ChapterNumber>3</ChapterNumber>
-    <VerseNumber>16</VerseNumber>
+    <BookName>சங்கீதம்</BookName>
+    <BookTitle>சங்கீதம்</BookTitle>
+    <BookAbbreviation>சங்.</BookAbbreviation>
+    <ChapterNumber>23</ChapterNumber>
+    <VerseNumber>3</VerseNumber>
     <BackgroundPath>BibleOpened07.jpg</BackgroundPath>
 </BibleShowData>
