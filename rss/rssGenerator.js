@@ -81,7 +81,7 @@ class RSSGenerator {
         });
 
         feed.item({
-            title: `${verseData.verse} ${verseData.reference}`,
+            title: `${verseData.verse}`,
             description: verseData.verse,
             url: `${BASE_URL}/api/verse/${versionLower}/${verseData.book_short_name}/${verseData.chapter_num}/${verseData.verse_num}`,
             guid: `verse-${version}-${Date.now()}`,
