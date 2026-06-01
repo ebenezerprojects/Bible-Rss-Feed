@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <BibleShowData>
-    <TimeCode>1780195140116</TimeCode>
-    <Reference>சங்கீதம் 23:3 (TAOVBSI)</Reference>
-    <Scripture>அவர் என் ஆத்துமாவைத் தேற்றி, தம்முடைய நாமத்தினிமித்தம் என்னை நீதியின் பாதைகளில் நடத்துகிறார்.</Scripture>
+    <TimeCode>1780275869449</TimeCode>
+    <Reference>சங்கீதம் 107:41 (TAOVBSI)</Reference>
+    <Scripture>எளியவனையோ சிறுமையினின்று எடுத்து, உயர்ந்த அடைக்கலத்திலே வைத்து, அவன் வம்சங்களை மந்தையைப்போலாக்குகிறார்.</Scripture>
     <ImagePath></ImagePath>
     <BibleVersion>TAOVBSI</BibleVersion>
     <BibleCopyright>Public Domain</BibleCopyright>
@@ -10,7 +10,7 @@
     <BookName>சங்கீதம்</BookName>
     <BookTitle>சங்கீதம்</BookTitle>
     <BookAbbreviation>சங்.</BookAbbreviation>
-    <ChapterNumber>23</ChapterNumber>
-    <VerseNumber>3</VerseNumber>
+    <ChapterNumber>107</ChapterNumber>
+    <VerseNumber>41</VerseNumber>
     <BackgroundPath>BibleOpened07.jpg</BackgroundPath>
 </BibleShowData>
