@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verse Finder - Bible API</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#" id="brandLink"><i class="fas fa-bible me-2"></i>Bible API</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle me-1"></i><span id="userName">User</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item text-danger" href="#" id="logoutBtn"><i
+                                        class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+                <div class="position-sticky pt-3">
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">Bible</h6>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a class="nav-link active" href="/src/bible/verse-finder.html"><i
+                                    class="fas fa-book-open me-2"></i>Verse Finder</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/src/bible/word-search.html"><i
+                                    class="fas fa-search me-2"></i>Word Search</a></li>
+                    </ul>
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">Feeds & Formats</h6>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a class="nav-link" href="/src/feeds/rss-feeds.html"><i
+                                    class="fas fa-rss me-2"></i>RSS Feeds</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/src/feeds/xml-format.html"><i
+                                    class="fas fa-code me-2"></i>XML Format</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/src/feeds/text-files.html"><i
+                                    class="fas fa-file-alt me-2"></i>Text Files</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/src/feeds/file-locations.html"><i
+                                    class="fas fa-folder-open me-2"></i>File Locations</a></li>
+                    </ul>
+                    <div id="adminMenu" style="display:none;">
+                        <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">Administration</h6>
+                        <ul class="nav flex-column">
+                            <li class="nav-item"><a class="nav-link" href="/src/admin/user-management.html"><i
+                                        class="fas fa-users me-2"></i>User Management</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/src/admin/backup.html"><i
+                                        class="fas fa-database me-2"></i>Backup</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/src/admin/statistics.html"><i
+                                        class="fas fa-chart-line me-2"></i>Statistics</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2"><i class="fas fa-book-open me-2"></i>Verse Finder</h1>
+                </div>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Version</label>
+                                <select class="form-select" id="verseVersion">
+                                    <option value="">Loading versions...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Book</label>
+                                <select class="form-select" id="verseBook">
+                                    <option value="">Select version first</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Chapter</label>
+                                <input type="number" class="form-control" id="verseChapter" value="1" min="1">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Verse</label>
+                                <input type="number" class="form-control" id="verseNumber" value="1" min="1">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button class="btn btn-primary w-100" id="getVerseBtn">
+                                    <i class="fas fa-search me-2"></i>Get Verse
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="verseResult" style="display:none;">
+                    <div class="verse-card">
+                        <div class="verse-reference" id="verseRef"></div>
+                        <div class="verse-text" id="verseText"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/common.js"></script>
+    <script>
+        // Global variables
+        let booksList = [];
+        let currentVersion = '';
+        let currentBook = '';
+        let currentChapter = 1;
+        let currentVerse = 1;
+
+        // Book chapter mapping for validation
+        const bookChapters = {
+            'GEN': 50, 'EXO': 40, 'LEV': 27, 'NUM': 36, 'DEU': 34, 'JOS': 24, 'JDG': 21, 'RUT': 4,
+            '1SA': 31, '2SA': 24, '1KI': 22, '2KI': 25, '1CH': 29, '2CH': 36, 'EZR': 10, 'NEH': 13,
+            'EST': 10, 'JOB': 42, 'PSA': 150, 'PRO': 31, 'ECC': 12, 'SNG': 8, 'ISA': 66, 'JER': 52,
+            'LAM': 5, 'EZK': 48, 'DAN': 12, 'HOS': 14, 'JOL': 3, 'AMO': 9, 'OBA': 1, 'JON': 4,
+            'MIC': 7, 'NAM': 3, 'HAB': 3, 'ZEP': 3, 'HAG': 2, 'ZEC': 14, 'MAL': 4, 'MAT': 28,
+            'MRK': 16, 'LUK': 24, 'JHN': 21, 'ACT': 28, 'ROM': 16, '1CO': 16, '2CO': 13, 'GAL': 6,
+            'EPH': 6, 'PHP': 4, 'COL': 4, '1TH': 5, '2TH': 3, '1TI': 6, '2TI': 4, 'TIT': 3,
+            'PHM': 1, 'HEB': 13, 'JAS': 5, '1PE': 5, '2PE': 3, '1JN': 5, '2JN': 1, '3JN': 1,
+            'JUD': 1, 'REV': 22
+        };
+
+        // DOM Elements
+        const versionSelect = document.getElementById('verseVersion');
+        const bookSelect = document.getElementById('verseBook');
+        const chapterInput = document.getElementById('verseChapter');
+        const verseInput = document.getElementById('verseNumber');
+        const getVerseBtn = document.getElementById('getVerseBtn');
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!checkAuth()) return;
+
+            const user = getCurrentUser();
+            document.getElementById('userName').textContent = user.full_name || user.user_id;
+            document.getElementById('brandLink').href = '/src/admin/dashboard.html';
+
+            if (user.role === 'admin') {
+                document.getElementById('adminMenu').style.display = 'block';
+            }
+
+            await loadVersions();
+        });
+
+        // Version change listener
+        versionSelect.addEventListener('change', async function () {
+            currentVersion = this.value;
+            if (currentVersion) {
+                showToast(`Loading books for ${currentVersion.toUpperCase()}...`, 'info');
+                await loadBooks();
+                // Reset chapter and verse
+                chapterInput.value = 1;
+                verseInput.value = 1;
+                currentChapter = 1;
+                currentVerse = 1;
+            } else {
+                bookSelect.innerHTML = '<option value="">Select version first</option>';
+                chapterInput.disabled = true;
+                verseInput.disabled = true;
+                getVerseBtn.disabled = true;
+            }
+        });
+
+        // Book change listener
+        bookSelect.addEventListener('change', async function () {
+            currentBook = this.value;
+            if (currentBook) {
+                // Update max chapter based on selected book
+                const maxChapter = bookChapters[currentBook] || 50;
+                chapterInput.max = maxChapter;
+                if (parseInt(chapterInput.value) > maxChapter) {
+                    chapterInput.value = maxChapter;
+                }
+                chapterInput.disabled = false;
+                // Update max verse for the new chapter
+                await updateMaxVerse(currentBook, chapterInput.value);
+                verseInput.disabled = false;
+                getVerseBtn.disabled = false;
+                showToast(`Selected: ${bookSelect.options[bookSelect.selectedIndex]?.text}`, 'info');
+            } else {
+                chapterInput.disabled = true;
+                verseInput.disabled = true;
+                getVerseBtn.disabled = true;
+            }
+        });
+
+        // Chapter change listener
+        chapterInput.addEventListener('change', async function () {
+            let chapter = parseInt(this.value);
+            const maxChapter = bookChapters[currentBook] || 50;
+
+            if (isNaN(chapter) || chapter < 1) {
+                chapter = 1;
+                this.value = 1;
+            } else if (chapter > maxChapter) {
+                chapter = maxChapter;
+                this.value = maxChapter;
+                showToast(`Maximum chapter for ${currentBook} is ${maxChapter}`, 'warning');
+            }
+
+            currentChapter = chapter;
+            await updateMaxVerse(currentBook, currentChapter);
+
+            // Reset verse to 1 if it exceeds max
+            if (parseInt(verseInput.value) > verseInput.max) {
+                verseInput.value = 1;
+                currentVerse = 1;
+            }
+        });
+
+        // Verse change listener
+        verseInput.addEventListener('change', function () {
+            let verse = parseInt(this.value);
+            const maxVerse = parseInt(this.max);
+
+            if (isNaN(verse) || verse < 1) {
+                verse = 1;
+                this.value = 1;
+            } else if (verse > maxVerse) {
+                verse = maxVerse;
+                this.value = maxVerse;
+                showToast(`Maximum verse for ${currentBook} ${currentChapter} is ${maxVerse}`, 'warning');
+            }
+
+            currentVerse = verse;
+        });
+
+        // Get Verse button click listener
+        getVerseBtn.addEventListener('click', getVerse);
+
+        // Also handle Enter key on inputs
+        chapterInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') getVerse();
+        });
+
+        verseInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') getVerse();
+        });
+
+        // Load versions function
+        async function loadVersions() {
+            try {
+                const versions = getUserVersions();
+
+                if (!versions || versions.length === 0) {
+                    versionSelect.innerHTML = '<option value="">No versions assigned</option>';
+                    showToast('No Bible versions assigned to you. Contact administrator.', 'warning');
+                    return;
+                }
+
+                versionSelect.innerHTML = '<option value="">Select a version</option>' +
+                    versions.map(v => `<option value="${v.toLowerCase()}">${v}</option>`).join('');
+
+                // Auto-select first version if available
+                if (versions.length > 0) {
+                    versionSelect.value = versions[0].toLowerCase();
+                    // Trigger change event
+                    versionSelect.dispatchEvent(new Event('change'));
+                }
+
+                showToast(`Loaded ${versions.length} Bible version(s)`, 'success');
+            } catch (error) {
+                console.error('Error loading versions:', error);
+                versionSelect.innerHTML = '<option value="">Error loading versions</option>';
+                showToast('Error loading versions', 'danger');
+            }
+        }
+
+        // Load books function
+        // Load books function
+        async function loadBooks() {
+            if (!currentVersion) {
+                bookSelect.innerHTML = '<option value="">Select version first</option>';
+                return;
+            }
+
+            bookSelect.innerHTML = '<option value="">Loading books...</option>';
+            bookSelect.disabled = true;
+            chapterInput.disabled = true;
+            verseInput.disabled = true;
+            getVerseBtn.disabled = true;
+
+            try {
+                const response = await apiRequest(`/api/${currentVersion}/books`);
+
+                if (response.success && response.data) {
+                    // Combine Old Testament and New Testament books
+                    let allBooks = [];
+
+                    // Add Old Testament books
+                    if (response.data.old_testament && response.data.old_testament.books && response.data.old_testament.books.length > 0) {
+                        allBooks = [...allBooks, ...response.data.old_testament.books];
+                        console.log(`Loaded ${response.data.old_testament.books.length} Old Testament books`);
+                    }
+
+                    // Add New Testament books
+                    if (response.data.new_testament && response.data.new_testament.books && response.data.new_testament.books.length > 0) {
+                        allBooks = [...allBooks, ...response.data.new_testament.books];
+                        console.log(`Loaded ${response.data.new_testament.books.length} New Testament books`);
+                    }
+
+                    if (allBooks.length > 0) {
+                        booksList = allBooks;
+
+                        // Create optgroups for Old and New Testament
+                        let oldTestamentOptions = '';
+                        let newTestamentOptions = '';
+
+                        if (response.data.old_testament && response.data.old_testament.books) {
+                            oldTestamentOptions = response.data.old_testament.books.map(book =>
+                                `<option value="${book.book_global_id}">📖 ${book.book_name}</option>`
+                            ).join('');
+                        }
+
+                        if (response.data.new_testament && response.data.new_testament.books) {
+                            newTestamentOptions = response.data.new_testament.books.map(book =>
+                                `<option value="${book.book_global_id}">✝️ ${book.book_name}</option>`
+                            ).join('');
+                        }
+
+                        bookSelect.innerHTML = '<option value="">Select a book</option>';
+
+                        if (oldTestamentOptions) {
+                            bookSelect.innerHTML += `<optgroup label="Old Testament (${response.data.old_testament?.count || 0} books)">${oldTestamentOptions}</optgroup>`;
+                        }
+
+                        if (newTestamentOptions) {
+                            bookSelect.innerHTML += `<optgroup label="New Testament (${response.data.new_testament?.count || 0} books)">${newTestamentOptions}</optgroup>`;
+                        }
+
+                        bookSelect.disabled = false;
+                        showToast(`Loaded ${allBooks.length} books (${response.data.old_testament?.count || 0} OT, ${response.data.new_testament?.count || 0} NT)`, 'success');
+
+                        // Auto-select first book
+                        if (allBooks.length > 0) {
+                            bookSelect.value = allBooks[0].book_short_name;
+                            bookSelect.dispatchEvent(new Event('change'));
+                        }
+                    } else {
+                        bookSelect.innerHTML = '<option value="">No books found</option>';
+                        showToast('No books found for this version', 'warning');
+                    }
+                } else {
+                    bookSelect.innerHTML = '<option value="">No books found</option>';
+                    showToast('No books found for this version', 'warning');
+                }
+            } catch (error) {
+                console.error('Error loading books:', error);
+                bookSelect.innerHTML = '<option value="">Error loading books</option>';
+                showToast('Error loading books: ' + error.message, 'danger');
+            }
+        }
+
+        // Update max verse based on selected book and chapter
+        async function updateMaxVerse(bookCode, chapter) {
+            if (!bookCode || !chapter) return;
+
+            try {
+                const response = await apiRequest(`/api/books/verse-count/${bookCode}/${chapter}`);
+                if (response.success && response.data) {
+                    const maxVerse = response.data.maxVerses;
+                    verseInput.max = maxVerse;
+
+                    if (parseInt(verseInput.value) > maxVerse) {
+                        verseInput.value = maxVerse;
+                        currentVerse = maxVerse;
+                    }
+
+                    verseInput.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error getting verse count:', error);
+                // Fallback: allow up to 200 verses
+                verseInput.max = 200;
+                verseInput.disabled = false;
+            }
+        }
+
+        // Get verse function
+        async function getVerse() {
+            if (!currentVersion) {
+                showToast('Please select a version', 'warning');
+                return;
+            }
+
+            if (!currentBook) {
+                showToast('Please select a book', 'warning');
+                return;
+            }
+
+            const chapter = parseInt(chapterInput.value);
+            const verse = parseInt(verseInput.value);
+
+            if (isNaN(chapter) || chapter < 1) {
+                showToast('Please enter a valid chapter number', 'warning');
+                return;
+            }
+
+            if (isNaN(verse) || verse < 1) {
+                showToast('Please enter a valid verse number', 'warning');
+                return;
+            }
+
+            const verseResult = document.getElementById('verseResult');
+            verseResult.style.display = 'none';
+
+            // Show loading state
+            getVerseBtn.disabled = true;
+            getVerseBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+
+            try {
+                const data = await apiRequest(`/api/${currentVersion}/verse/${currentBook}/${chapter}/${verse}`);
+
+                if (data.success && data.data) {
+                    document.getElementById('verseRef').innerHTML = `<i class="fas fa-bookmark me-2"></i>${data.data.reference}`;
+                    document.getElementById('verseText').innerHTML = data.data.verse;
+                    verseResult.style.display = 'block';
+                    showToast('Verse loaded successfully!', 'success');
+
+                    // Scroll to result
+                    verseResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch (error) {
+                showToast(error.message, 'danger');
+                console.error('Error getting verse:', error);
+            } finally {
+                getVerseBtn.disabled = false;
+                getVerseBtn.innerHTML = '<i class="fas fa-search me-2"></i>Get Verse';
+            }
+        }
+    </script>
+</body>
+
+</html>

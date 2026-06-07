@@ -2,182 +2,220 @@
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
 
-const { initializeDatabase, closeDatabase } = require('./config/database');
-const { PORT, HOSTNAME, IP_ADDRESS, BASE_URL, ENV, isDev } = require('./config/serverConfig');
-const routes = require('./routes');
-const rssModule = require('./rss');
-const txtWriterModule = require('./txtWriter');
-const setupSwagger = require('./swagger/swagger');
-const setupHealthRoute = require('./routes/system/health');
-const setupNetworkInfoRoute = require('./routes/system/networkInfo');
-const setupDebugRoute = require('./routes/system/debug');
-const { getActiveVersionsSync, loadVersionsFromDB } = require('./config/versions');
+const config = require('./server/config/index');
+const { logger, accessLogger } = require('./server/config/logger');
+const { initializeUserDatabase, closeAllDatabases, getDatabaseStats } = require('./server/config/database');
+const { errorHandler, notFoundHandler } = require('./server/middleware/errorHandler');
+const { generalLimiter } = require('./server/middleware/rateLimiter');
 
 const app = express();
 const server = http.createServer(app);
 
-// Create documents directory
-const DOCS_DIR = path.join(__dirname, 'documents');
-if (!fs.existsSync(DOCS_DIR)) {
-    fs.mkdirSync(DOCS_DIR, { recursive: true });
-    console.log('[Main] Created documents directory');
-}
-
-// Middleware
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging
-app.use((req, res, next) => {
-    const startTime = Date.now();
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const skipLogging = req.url.includes('/api-docs') || req.url.includes('/swagger');
-
-    req._startTime = startTime;
-
-    if (!skipLogging) {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Client: ${clientIp}`);
+// Create necessary directories
+const directories = [config.logging.dir, './db', './backups'];
+directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        logger.info(`Created directory: ${dir}`);
     }
+});
 
-    res.on('finish', () => {
-        if (!skipLogging) {
-            const duration = Date.now() - startTime;
-            console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
-        }
-    });
+// Security and utility middleware
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression());
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(accessLogger);
+app.use(generalLimiter);
 
+// Request ID middleware
+app.use((req, res, next) => {
+    req.requestId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    res.setHeader('X-Request-Id', req.requestId);
     next();
 });
 
-// Initialize
-initializeDatabase();
-txtWriterModule.initialize();
-rssModule.initialize(server, app);
+// Serve static frontend files
+app.use('/src', express.static(path.join(__dirname, 'public/src')));
+app.use('/css', express.static(path.join(__dirname, 'public/css')));
+app.use('/js', express.static(path.join(__dirname, 'public/js')));
+app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
 
-// Routes
-app.use('/', routes);
-app.use('/', rssModule.getRouter());
-app.use('/public', express.static('public'));
-
-// Setup system routes
-setupSwagger(app);
-setupHealthRoute(app, rssModule);
-setupNetworkInfoRoute(app);
-setupDebugRoute(app, rssModule);
-
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('❌ Error:', err.stack);
-    res.status(500).json({ success: false, error: 'Something went wrong!', message: err.message, timestamp: new Date().toISOString() });
+// HTML route handlers
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/src', 'index.html'));
 });
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ success: false, error: 'Endpoint not found', message: 'Please check the API documentation', documentation: `${BASE_URL}/api-docs`, timestamp: new Date().toISOString() });
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/src', 'login.html'));
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n🔴 Shutting down server...');
-    txtWriterModule.stop();
-    rssModule.stop();
-    closeDatabase();
-    process.exit(0);
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/src', 'dashboard.html'));
 });
 
-process.on('SIGTERM', () => {
-    console.log('\n🔴 Shutting down server...');
-    txtWriterModule.stop();
-    rssModule.stop();
-    closeDatabase();
-    process.exit(0);
+// Handle all src routes
+app.get('/src/*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', req.path));
 });
 
-// Load versions and generate RSS endpoints list for display
-let activeVersions = [];
-let rssEndpoints = [];
+// Initialize database
+initializeUserDatabase();
+logger.info('Database initialized');
 
-async function loadAndDisplayVersions() {
-    await loadVersionsFromDB();
-    activeVersions = getActiveVersionsSync();
-    rssEndpoints = [];
-    activeVersions.forEach(version => {
-        rssEndpoints.push(`   ├─ /rss/${version.code.toLowerCase()}/verse (${version.name} Verse)`);
-        rssEndpoints.push(`   └─ /rss/${version.code.toLowerCase()}/reference (${version.name} Reference)`);
-    });
+// Database stats
+const dbStats = getDatabaseStats();
+logger.info('Database stats:', dbStats);
+
+// ==================== API ROUTES ====================
+
+// Authentication routes
+app.use('/auth', require('./server/routes/auth/authRoutes'));
+
+// Bible API routes
+app.use('/api', require('./server/routes/bible/verseRoutes'));
+app.use('/api', require('./server/routes/bible/bookRoutes'));
+app.use('/api', require('./server/routes/bible/searchRoutes'));
+
+// RSS feed routes
+app.use('/', require('./server/routes/rss/rssRoutes'));
+
+// Format routes
+app.use('/', require('./server/routes/formats/formatRoutes'));
+
+// Admin routes
+app.use('/admin', require('./server/routes/admin/adminRoutes'));
+app.use('/admin', require('./server/routes/admin/backupRoutes'));
+
+// User management routes
+app.use('/user', require('./server/routes/user/userManagementRoutes'));
+app.use('/user', require('./server/routes/user/fileLocationRoutes'));
+
+// System routes
+app.use('/', require('./server/routes/system/healthRoutes'));
+
+// Debug routes (only in development)
+if (config.isDev) {
+    app.use('/debug', require('./server/routes/system/debugRoutes'));
 }
 
-// Start server
-loadAndDisplayVersions().then(() => {
-    server.listen(PORT, IP_ADDRESS, () => {
-        console.log(`
-╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║                                                                                                                              ║
-║                                         📖 BIBLE API SERVER STARTED ✅                                                       ║
-║                                                                                                                              ║
-║   📡 Server Information:                                                                                                    ║
-║   ├─ Hostname: ${HOSTNAME}                                                                                                    ║
-║   ├─ Port: ${PORT}                                                                                                            ║
-║   ├─ IP Address: ${IP_ADDRESS}                                                                                                ║
-║   ├─ Base URL: ${BASE_URL}                                                                                                    ║
-║   └─ Environment: ${ENV}${isDev ? ' (Development)' : ' (Production)'}                                                         ║
-║                                                                                                                              ║
-║   📖 Bible Endpoints:                                                                                                       ║
-║   ├─ Single Verse (Tracked): ${BASE_URL}/:version/verse/:book/:chapter/:verse                                                 ║
-║   ├─ Verse Range:         ${BASE_URL}/:version/range/:book/:startChapter/:startVerse/:endChapter/:endVerse                   ║
-║   ├─ Complete Chapter:    ${BASE_URL}/:version/chapter/:book/:chapter                                                         ║
-║   ├─ Versions List:       ${BASE_URL}/versions                                                                                ║
-║   ├─ Books List (OT/NT):  ${BASE_URL}/:version/books                                                                          ║
-║   └─ Word Search:         ${BASE_URL}/:version/search/:keyword                                                                ║
-║                                                                                                                              ║
-║   📡 RSS Feeds (Per Version):                                                                                               ║
-${rssEndpoints.join('\n')}
-║                                                                                                                              ║
-║   📄 Text Files (documents/):                                                                                               ║
-║   ├─ verse.txt            - Only verse text                                                                                 ║
-║   ├─ ref.txt              - Only reference                                                                                  ║
-║   ├─ verse_with_ref.txt   - Reference + verse                                                                               ║
-║   ├─ bible_show.xml       - BibleShow format                                                                                ║
-║   └─ verse_info.json      - Structured JSON data                                                                            ║
-║                                                                                                                              ║
-║   🛠️ System Endpoints:                                                                                                     ║
-║   ├─ Health Check:        ${BASE_URL}/health                                                                                  ║
-║   ├─ Network Info:        ${BASE_URL}/network-info                                                                            ║
-║   ├─ API History:         ${BASE_URL}/api-history                                                                             ║
-║   ├─ RSS Feeds List:      ${BASE_URL}/rss/feeds                                                                               ║
-║   ├─ Formats Info:        ${BASE_URL}/formats                                                                                 ║
-║   ├─ WebSocket Info:      ${BASE_URL}/ws-info                                                                                 ║
-║   └─ Debug:               ${BASE_URL}/debug ${isDev ? '(Enabled)' : '(Disabled)'}                                              ║
-║                                                                                                                              ║
-║   🔌 WebSocket Connection:                                                                                                  ║
-║   └─ ${BASE_URL.replace('http', 'ws')}/rss/ws                                                                                 ║
-║                                                                                                                              ║
-║   🚀 Quick Test Commands:                                                                                                   ║
-║   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐   ║
-║   │ 1. Update verse for ${activeVersions[0]?.code || 'KJV'} (triggers all formats):                                          │   ║
-║   │    curl ${BASE_URL}/${activeVersions[0]?.key || 'kjv'}/verse/JHN/3/16                                                    │   ║
-║   │                                                                                                                         │   ║
-║   │ 2. Get ${activeVersions[0]?.code || 'KJV'} Verse RSS:                                                                    │   ║
-║   │    curl ${BASE_URL}/rss/${activeVersions[0]?.key || 'kjv'}/verse                                                         │   ║
-║   │                                                                                                                         │   ║
-║   │ 3. Get ${activeVersions[0]?.code || 'KJV'} Reference RSS:                                                                │   ║
-║   │    curl ${BASE_URL}/rss/${activeVersions[0]?.key || 'kjv'}/reference                                                     │   ║
-║   │                                                                                                                         │   ║
-║   │ 4. List all available RSS feeds:                                                                                       │   ║
-║   │    curl ${BASE_URL}/rss/feeds                                                                                           │   ║
-║   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘   ║
-║                                                                                                                              ║
-║   📖 Swagger Documentation: ${BASE_URL}/api-docs                                                                             ║
-║                                                                                                                              ║
-╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
-        `);
+// API Info route
+app.get('/api-info', (req, res) => {
+    res.json({
+        name: 'Bible API',
+        version: '3.0.0',
+        environment: config.env,
+        documentation: config.swagger?.enabled ? `http://${config.server.host}:${config.server.port}/api-docs` : 'Disabled',
+        endpoints: {
+            auth: { login: 'POST /auth/login', logout: 'POST /auth/logout' },
+            bible: { verse: 'GET /api/:version/verse/:book/:chapter/:verse' },
+            rss: { verse_feed: 'GET /rss/:userId/:version/verse' },
+            formats: { xml: 'GET /bibleshow/xml', json: 'GET /bibleshow/json' }
+        }
     });
+});
+
+// Swagger documentation
+// Swagger documentation
+if (config.swagger?.enabled) {
+    try {
+        const swaggerUi = require('swagger-ui-express');
+        const YAML = require('yamljs');
+        const swaggerPath = path.join(__dirname, 'server', 'swagger', 'swagger.yaml');
+        
+        console.log('Looking for swagger at:', swaggerPath);
+        
+        if (fs.existsSync(swaggerPath)) {
+            const swaggerDocument = YAML.load(swaggerPath);
+            swaggerDocument.servers = [{ url: config.server.baseUrl, description: `${config.env} server` }];
+            
+            // Serve swagger UI
+            app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+                explorer: true,
+                swaggerOptions: {
+                    persistAuthorization: true,
+                    displayRequestDuration: true,
+                    filter: true,
+                    tryItOutEnabled: true,
+                    docExpansion: 'list'
+                }
+            }));
+            
+            // Also serve raw swagger.json
+            app.get('/swagger.json', (req, res) => {
+                res.json(swaggerDocument);
+            });
+            
+            logger.info(`✅ Swagger UI available at ${config.server.baseUrl}/api-docs`);
+        } else {
+            logger.warn(`Swagger file not found at ${swaggerPath}`);
+            console.log('Creating swagger directory and file...');
+            
+            // Create swagger directory if it doesn't exist
+            const swaggerDir = path.join(__dirname, 'server', 'swagger');
+            if (!fs.existsSync(swaggerDir)) {
+                fs.mkdirSync(swaggerDir, { recursive: true });
+            }
+        }
+    } catch (error) {
+        logger.error(`Failed to load Swagger: ${error.message}`);
+        console.error('Swagger error:', error);
+    }
+} else {
+    logger.info('Swagger documentation is disabled');
+    console.log('Swagger is disabled. Set SWAGGER_ENABLED=true in .env.dev');
+}
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Graceful shutdown
+const gracefulShutdown = () => {
+    logger.info('Shutting down server...');
+    server.close(async () => {
+        closeAllDatabases();
+        logger.info('Server shutdown complete');
+        process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+process.on('uncaughtException', (error) => { logger.error('Uncaught Exception:', error); gracefulShutdown(); });
+process.on('unhandledRejection', (reason, promise) => { logger.error('Unhandled Rejection:', reason); });
+
+// Start server
+const PORT = config.server.port;
+const HOST = config.server.host;
+server.listen(PORT, HOST, () => {
+    logger.info(`
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║                                    BIBLE API SERVER STARTED                           ║
+╠══════════════════════════════════════════════════════════════════════════════════════╣
+║  Environment: ${config.env.padEnd(60)}║
+║  Port: ${String(PORT).padEnd(60)}║
+║  URL: http://${HOST}:${PORT}${' '.repeat(60 - String(`http://${HOST}:${PORT}`).length)}║
+║  Swagger: ${(config.swagger?.enabled ? `http://${HOST}:${PORT}/api-docs` : 'Disabled').padEnd(60)}║
+╠══════════════════════════════════════════════════════════════════════════════════════╣
+║  Frontend:                                                                            ║
+║  - Home: http://${HOST}:${PORT}/                                                    ║
+║  - Login: http://${HOST}:${PORT}/login                                              ║
+║  - Dashboard: http://${HOST}:${PORT}/dashboard                                      ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
+    `);
+    console.log('\n📖 Demo Accounts:');
+    console.log('   Admin:  admin / admin123');
+    console.log('   User:   user1 / user123');
+    console.log('\n🌐 Open in browser: http://' + HOST + ':' + PORT);
 });
 
 module.exports = { app, server };

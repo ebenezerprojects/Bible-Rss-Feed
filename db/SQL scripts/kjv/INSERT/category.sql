@@ -1,0 +1,10 @@
+INSERT INTO category (category_name) VALUES ('Pentateuch');
+INSERT INTO category (category_name) VALUES ('Historical');
+INSERT INTO category (category_name) VALUES ('Poetry/Wisdom');
+INSERT INTO category (category_name) VALUES ('Major Prophets');
+INSERT INTO category (category_name) VALUES ('Minor Prophets');
+INSERT INTO category (category_name) VALUES ('Gospels');
+INSERT INTO category (category_name) VALUES ('History');
+INSERT INTO category (category_name) VALUES ('Pauline Epistles');
+INSERT INTO category (category_name) VALUES ('General Epistles');
+INSERT INTO category (category_name) VALUES ('Apocalyptic');

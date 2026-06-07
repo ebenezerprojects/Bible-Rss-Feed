@@ -1,0 +1,1733 @@
+openapi: 3.0.0
+info:
+  title: Bible API
+  description: |
+    Complete Bible API with Role-Based Access Control (RBAC), multi-version support, RSS feeds, user management, file locations, and backup system.
+    
+    ## Role-Based Access Control
+    - **Admin**: Full system access with all permissions
+    - **User**: Standard user with Bible reading and format access
+    - **Viewer**: Read-only access to Bible content
+    - **Editor**: Can edit content but not manage users
+    
+    ## Authentication
+    Use Bearer token authentication. Login to get your JWT token.
+    
+    ## Rate Limiting
+    - General API: 100 requests per 15 minutes
+    - Auth endpoints: 5 attempts per 15 minutes
+    
+    ## File Locations
+    Users can configure local drive paths where TXT and XML files will be saved automatically when accessing verses.
+  version: 3.0.0
+  contact:
+    name: API Support
+    email: support@bibleapi.com
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.bibleapi.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: Login, logout, and session management
+  - name: User Information
+    description: User profile, permissions, and dashboard data
+  - name: File Locations
+    description: Configure local file save paths for TXT and XML files
+  - name: Bible
+    description: Bible reading, searching, and validation endpoints
+  - name: RSS Feeds
+    description: RSS feed endpoints for verses and references
+  - name: Formats
+    description: XML and JSON format outputs
+  - name: Roles & Permissions
+    description: Role and permission management (Admin only)
+  - name: Backup
+    description: Backup system management (Admin only)
+  - name: Admin
+    description: Administrative endpoints (Admin only)
+  - name: User Management
+    description: User creation and assignment (Admin only)
+  - name: System
+    description: Health checks and system information
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==================== AUTHENTICATION ====================
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and get JWT token with session
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - password
+              properties:
+                user_id:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  minLength: 4
+                  example: admin123
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Login successful
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT token for authentication
+                      session_id:
+                        type: string
+                        description: Unique session identifier
+                      session_expiry:
+                        type: string
+                        format: date-time
+                      user:
+                        type: object
+                        properties:
+                          user_id:
+                            type: string
+                          email:
+                            type: string
+                          full_name:
+                            type: string
+                          role:
+                            type: string
+                      versions:
+                        type: array
+                        items:
+                          type: string
+                      formats:
+                        type: array
+                        items:
+                          type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      expires_in:
+                        type: string
+        400:
+          description: Missing credentials
+        401:
+          description: Invalid credentials or account inactive
+        429:
+          description: Too many login attempts
+
+  /auth/logout:
+    post:
+      summary: User logout
+      description: Logout user and clear session history
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        401:
+          description: Authentication required
+
+  /auth/check-session:
+    get:
+      summary: Check session validity
+      description: Verify if current session is still valid
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Session is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+        401:
+          description: Session expired or invalid
+
+  # ==================== USER INFORMATION ====================
+  /user/me:
+    get:
+      summary: Get complete user information
+      description: Returns user profile, role, permissions, assigned Bible versions, and available formats
+      tags: [User Information]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user_info:
+                        type: object
+                      bible_versions:
+                        type: array
+                      available_formats:
+                        type: array
+                      summary:
+                        type: object
+        401:
+          description: Authentication required
+
+  /user/me/permissions:
+    get:
+      summary: Get user's permissions
+      description: Returns all permissions for the current user
+      tags: [User Information]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Permissions retrieved successfully
+        401:
+          description: Authentication required
+
+  /user/me/formats:
+    get:
+      summary: Get user's available formats with access links
+      description: Returns all formats user has access to with direct URLs
+      tags: [User Information]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Formats retrieved successfully
+        401:
+          description: Authentication required
+
+  /user/me/versions:
+    get:
+      summary: Get user's assigned Bible versions
+      description: Returns all Bible versions user has access to with API endpoints
+      tags: [User Information]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Bible versions retrieved successfully
+        401:
+          description: Authentication required
+
+  /user/me/dashboard:
+    get:
+      summary: Get user dashboard summary
+      description: Returns user statistics, recent verses, and quick access links
+      tags: [User Information]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Dashboard data retrieved successfully
+        401:
+          description: Authentication required
+
+  # ==================== FILE LOCATIONS ====================
+  /user/location/txt:
+    post:
+      summary: Set TXT file location
+      description: Set the local drive path where TXT files will be saved
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_path
+              properties:
+                file_path:
+                  type: string
+                  description: Full local file path including filename
+                  example: "D:/BibleFiles/daily_verse.txt"
+      responses:
+        200:
+          description: TXT location set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+        400:
+          description: Invalid file path or directory not writable
+        401:
+          description: Authentication required
+        403:
+          description: Permission denied
+
+  /user/location/xml:
+    post:
+      summary: Set XML file location
+      description: Set the local drive path where XML files will be saved
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_path
+              properties:
+                file_path:
+                  type: string
+                  description: Full local file path including filename
+                  example: "D:/BibleFiles/bible_show.xml"
+      responses:
+        200:
+          description: XML location set successfully
+        400:
+          description: Invalid file path or directory not writable
+        401:
+          description: Authentication required
+        403:
+          description: Permission denied
+
+  /user/location:
+    get:
+      summary: Get both file locations
+      description: Returns both TXT and XML file locations for the current user
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Locations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      txt:
+                        type: object
+                        nullable: true
+                      xml:
+                        type: object
+                        nullable: true
+        401:
+          description: Authentication required
+
+  /user/location/{type}:
+    get:
+      summary: Get specific file location
+      description: Returns either TXT or XML file location
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [txt, xml]
+          description: Location type (txt or xml)
+      responses:
+        200:
+          description: Location retrieved successfully
+        401:
+          description: Authentication required
+        404:
+          description: Location not found
+
+    delete:
+      summary: Delete file location
+      description: Remove file location configuration
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [txt, xml]
+      responses:
+        200:
+          description: Location deleted successfully
+        401:
+          description: Authentication required
+
+  /user/location/test/{type}:
+    post:
+      summary: Test file location
+      description: Test if the configured file location is writable
+      tags: [File Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [txt, xml]
+      responses:
+        200:
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        401:
+          description: Authentication required
+        404:
+          description: No location configured
+
+  # ==================== BIBLE API ====================
+  /api/{version}/verse/{book}/{chapter}/{verse}:
+    get:
+      summary: Get single verse
+      description: Returns a specific Bible verse. This endpoint is TRACKED for RSS feeds and writes to user's configured TXT/XML files.
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, tam]
+          description: Bible version code
+          example: kjv
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 5
+          description: Book abbreviation (e.g., JHN, PSA, GEN)
+          example: JHN
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 150
+          description: Chapter number
+          example: 3
+        - name: verse
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 176
+          description: Verse number
+          example: 16
+      responses:
+        200:
+          description: Verse found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      version_code:
+                        type: string
+                      book_short_name:
+                        type: string
+                      book_name:
+                        type: string
+                      chapter_num:
+                        type: integer
+                      verse_num:
+                        type: integer
+                      verse:
+                        type: string
+                      reference:
+                        type: string
+        400:
+          description: Validation error (invalid chapter/verse)
+        401:
+          description: Authentication required
+        403:
+          description: Access denied - Version not assigned
+        404:
+          description: Verse not found
+
+  /api/{version}/range/{book}/{startChapter}/{startVerse}/{endChapter}/{endVerse}:
+    get:
+      summary: Get verse range
+      description: Returns a range of Bible verses
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: startChapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: startVerse
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: endChapter
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: endVerse
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Range of verses
+        400:
+          description: Validation error
+        401:
+          description: Authentication required
+        403:
+          description: Access denied
+
+  /api/{version}/chapter/{book}/{chapter}:
+    get:
+      summary: Get complete chapter
+      description: Returns all verses in a specific chapter
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: book
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Complete chapter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                      book:
+                        type: string
+                      book_name:
+                        type: string
+                      chapter:
+                        type: integer
+                      total_verses:
+                        type: integer
+                      max_verses_in_chapter:
+                        type: integer
+                      verses:
+                        type: array
+        400:
+          description: Validation error
+        401:
+          description: Authentication required
+        403:
+          description: Access denied
+
+  /api/{version}/search/{keyword}:
+    get:
+      summary: Search Bible verses
+      description: Search for verses containing specific keywords
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Search keyword or phrase
+        - name: testament
+          in: query
+          schema:
+            type: string
+            enum: [Old, New]
+          description: Filter by testament
+        - name: book
+          in: query
+          schema:
+            type: string
+          description: Filter by book abbreviation
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Maximum number of results
+      responses:
+        200:
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                      keyword:
+                        type: string
+                      total_results:
+                        type: integer
+                      results:
+                        type: array
+        401:
+          description: Authentication required
+        403:
+          description: Access denied
+
+  /api/{version}/books:
+    get:
+      summary: Get books list
+      description: Returns list of all books in the Bible with testament classification
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of books
+        401:
+          description: Authentication required
+
+  /api/books/info/{bookCode}:
+    get:
+      summary: Get book information
+      description: Returns detailed information about a specific book
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: PSA
+      responses:
+        200:
+          description: Book information
+        404:
+          description: Book not found
+
+  /api/books/verse-count/{bookCode}/{chapter}:
+    get:
+      summary: Get max verse count
+      description: Returns the maximum verse number for a specific chapter
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chapter
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Maximum verse count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      maxVerses:
+                        type: integer
+                      bookName:
+                        type: string
+        400:
+          description: Invalid book or chapter
+
+  /api/validate:
+    post:
+      summary: Validate Bible reference
+      description: Validate if a Bible reference is valid
+      tags: [Bible]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - book
+                - chapter
+                - verse
+              properties:
+                book:
+                  type: string
+                chapter:
+                  type: integer
+                verse:
+                  type: integer
+      responses:
+        200:
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  error:
+                    type: string
+                  bookName:
+                    type: string
+                  maxVerses:
+                    type: integer
+
+  # ==================== RSS FEEDS ====================
+  /rss/{userId}/{version}/verse:
+    get:
+      summary: Get RSS verse feed
+      description: Returns RSS feed of recent verses accessed by the user
+      tags: [RSS Feeds]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: admin
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [kjv, tam]
+          example: kjv
+      responses:
+        200:
+          description: RSS feed
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+        403:
+          description: Format access denied
+        404:
+          description: User or version not found
+
+  /rss/{userId}/{version}/reference:
+    get:
+      summary: Get RSS reference feed
+      description: Returns RSS feed of recent Bible references accessed by the user
+      tags: [RSS Feeds]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: RSS feed
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+        403:
+          description: Format access denied
+
+  /rss/feeds:
+    get:
+      summary: List RSS feeds for user
+      description: Returns list of available RSS feeds for the authenticated user
+      tags: [RSS Feeds]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: User ID (optional, uses authenticated user if not provided)
+      responses:
+        200:
+          description: List of RSS feeds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user_id:
+                    type: string
+                  total_feeds:
+                    type: integer
+                  feeds:
+                    type: array
+
+  # ==================== FORMATS ====================
+  /api/user/formats:
+    get:
+      summary: Get user's available formats
+      description: Returns list of formats the authenticated user has access to
+      tags: [Formats]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of available formats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  formats:
+                    type: array
+        401:
+          description: Authentication required
+
+  /bibleshow/xml:
+    get:
+      summary: Get BibleShow XML format
+      description: Returns XML format of the latest verse
+      tags: [Formats]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: query
+          schema:
+            type: string
+            default: kjv
+          description: Bible version code
+      responses:
+        200:
+          description: XML formatted verse
+          content:
+            application/xml:
+              schema:
+                type: string
+        401:
+          description: Authentication required
+        403:
+          description: Format access denied
+
+  /bibleshow/json:
+    get:
+      summary: Get JSON format
+      description: Returns JSON format of the latest verses
+      tags: [Formats]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: JSON formatted data
+          content:
+            application/json:
+              schema:
+                type: object
+        401:
+          description: Authentication required
+        403:
+          description: Format access denied
+
+  # ==================== ROLES & PERMISSIONS (ADMIN ONLY) ====================
+  /admin/roles:
+    get:
+      summary: Get all roles
+      description: Get list of all roles with user counts (Admin only)
+      tags: [Roles & Permissions]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+        403:
+          description: Admin access required
+
+  /admin/roles/{roleCode}/permissions:
+    get:
+      summary: Get role permissions
+      description: Get permissions assigned to a specific role (Admin only)
+      tags: [Roles & Permissions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roleCode
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [admin, user, viewer, editor]
+      responses:
+        200:
+          description: Role permissions
+        403:
+          description: Admin access required
+        404:
+          description: Role not found
+
+  /admin/permissions:
+    get:
+      summary: Get all permissions
+      description: Get list of all available permissions (Admin only)
+      tags: [Roles & Permissions]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of permissions
+        403:
+          description: Admin access required
+
+  /admin/users/{userId}/assign-role:
+    post:
+      summary: Assign role to user
+      description: Assign a role to a specific user (Admin only)
+      tags: [Roles & Permissions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role_code
+              properties:
+                role_code:
+                  type: string
+                  enum: [admin, user, viewer, editor]
+      responses:
+        200:
+          description: Role assigned successfully
+        403:
+          description: Admin access required
+        404:
+          description: User or role not found
+
+  # ==================== BACKUP SYSTEM (ADMIN ONLY) ====================
+  /admin/backup/create:
+    post:
+      summary: Create manual backup
+      description: Create a manual backup of the system (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Backup created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+        403:
+          description: Admin access required
+
+  /admin/backup/list:
+    get:
+      summary: List all backups
+      description: Get list of all available backups (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of backups
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                  total:
+                    type: integer
+        403:
+          description: Admin access required
+
+  /admin/backup/info/{filename}:
+    get:
+      summary: Get backup information
+      description: Get detailed information about a specific backup (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Backup information
+        403:
+          description: Admin access required
+        404:
+          description: Backup not found
+
+  /admin/backup/download/{filename}:
+    get:
+      summary: Download backup file
+      description: Download a backup ZIP file (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Backup file download
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        403:
+          description: Admin access required
+        404:
+          description: Backup not found
+
+  /admin/backup/delete/{filename}:
+    delete:
+      summary: Delete backup file
+      description: Delete a backup file (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Backup deleted successfully
+        403:
+          description: Admin access required
+        404:
+          description: Backup not found
+
+  /admin/backup/stats:
+    get:
+      summary: Get backup statistics
+      description: Get statistics about backup system (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Backup statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total_backups:
+                        type: integer
+                      auto_backups:
+                        type: integer
+                      manual_backups:
+                        type: integer
+                      total_size:
+                        type: string
+                      auto_backup_interval:
+                        type: string
+        403:
+          description: Admin access required
+
+  /admin/backup/clean:
+    post:
+      summary: Clean old backups
+      description: Delete manual backups older than specified days (Admin only)
+      tags: [Backup]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days:
+                  type: integer
+                  default: 30
+                  description: Number of days to keep backups
+      responses:
+        200:
+          description: Backups cleaned successfully
+        403:
+          description: Admin access required
+
+  # ==================== ADMIN USER MANAGEMENT ====================
+  /admin/users:
+    get:
+      summary: Get all users
+      description: Get list of all users with their roles (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+        403:
+          description: Admin access required
+
+  /admin/users/{userId}:
+    get:
+      summary: Get user by ID
+      description: Get detailed information about a specific user (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User details
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+
+    patch:
+      summary: Update user
+      description: Update user information (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                full_name:
+                  type: string
+                is_active:
+                  type: boolean
+      responses:
+        200:
+          description: User updated
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+
+  /admin/users/{userId}/toggle-status:
+    patch:
+      summary: Activate/Deactivate user
+      description: Toggle user active status (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User status updated
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+
+  /admin/stats:
+    get:
+      summary: Get system statistics
+      description: Get overall system statistics (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: integer
+                      api_calls:
+                        type: integer
+                      active_users:
+                        type: integer
+        403:
+          description: Admin access required
+
+  /admin/audit-logs:
+    get:
+      summary: Get audit logs
+      description: Get system audit logs (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        200:
+          description: Audit logs
+        403:
+          description: Admin access required
+
+  /admin/location/stats:
+    get:
+      summary: Get file location statistics
+      description: Get statistics about user file locations (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Location statistics
+        403:
+          description: Admin access required
+
+  # ==================== USER MANAGEMENT (ADMIN ONLY) ====================
+  /user/create:
+    post:
+      summary: Create new user
+      description: Create a new user account (Admin only)
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - password
+              properties:
+                user_id:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                password:
+                  type: string
+                  minLength: 4
+                email:
+                  type: string
+                  format: email
+                full_name:
+                  type: string
+                role_code:
+                  type: string
+                  enum: [admin, user, viewer, editor]
+                  default: user
+      responses:
+        200:
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+        400:
+          description: Validation error or user already exists
+        403:
+          description: Admin access required
+
+  /user/assign-formats:
+    post:
+      summary: Assign formats to user
+      description: Assign format permissions to a user (Admin only)
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - format_codes
+              properties:
+                user_id:
+                  type: string
+                format_codes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [RSS_VERSE, RSS_REFERENCE, XML_BIBLESHOW, JSON_BIBLE, TXT_VERSE]
+      responses:
+        200:
+          description: Formats assigned
+        400:
+          description: Invalid request
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+
+  /user/assign-versions:
+    post:
+      summary: Assign Bible versions to user
+      description: Assign Bible version access to a user (Admin only)
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - version_codes
+              properties:
+                user_id:
+                  type: string
+                version_codes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [KJV, TAM]
+                default_version:
+                  type: string
+      responses:
+        200:
+          description: Versions assigned
+        400:
+          description: Invalid request
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+
+  /user/create-full:
+    post:
+      summary: Create user with formats and versions
+      description: Create a new user with formats and versions assigned (Admin only)
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - password
+              properties:
+                user_id:
+                  type: string
+                password:
+                  type: string
+                email:
+                  type: string
+                full_name:
+                  type: string
+                role_code:
+                  type: string
+                  enum: [admin, user, viewer, editor]
+                format_codes:
+                  type: array
+                  items:
+                    type: string
+                version_codes:
+                  type: array
+                  items:
+                    type: string
+                default_version:
+                  type: string
+      responses:
+        200:
+          description: User created with assignments
+        400:
+          description: Invalid request
+        403:
+          description: Admin access required
+
+  /user/formats/list:
+    get:
+      summary: Get all available formats
+      description: Get list of all available formats in the system
+      tags: [User Management]
+      responses:
+        200:
+          description: List of formats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+
+  /user/versions/list:
+    get:
+      summary: Get all available Bible versions
+      description: Get list of all available Bible versions in the system
+      tags: [User Management]
+      responses:
+        200:
+          description: List of versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+
+  # ==================== SYSTEM ====================
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is healthy
+      tags: [System]
+      responses:
+        200:
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                  environment:
+                    type: string
+                  version:
+                    type: string
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      description: Kubernetes liveness probe endpoint
+      tags: [System]
+      responses:
+        200:
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Kubernetes readiness probe endpoint
+      tags: [System]
+      responses:
+        200:
+          description: Service is ready
+        503:
+          description: Service not ready
+
+  /:
+    get:
+      summary: API information
+      description: Get API information and available endpoints
+      tags: [System]
+      responses:
+        200:
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  version:
+                    type: string
+                  environment:
+                    type: string
+                  documentation:
+                    type: string
+                  endpoints:
+                    type: object
+
+  /api-info:
+    get:
+      summary: API endpoints info
+      description: Get JSON list of all available API endpoints
+      tags: [System]
+      responses:
+        200:
+          description: API endpoints list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  version:
+                    type: string
+                  endpoints:
+                    type: object
+
+  /debug:
+    get:
+      summary: Debug information
+      description: Get debug information (Development only)
+      tags: [System]
+      responses:
+        200:
+          description: Debug info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  environment:
+                    type: string
+                  uptime:
+                    type: number
+                  memory:
+                    type: object
+                  databases:
+                    type: object
+        404:
+          description: Not available in production

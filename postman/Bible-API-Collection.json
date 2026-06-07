@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "Bible API Complete",
+    "version": "3.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "userId", "value": "admin" }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if(response.success && response.data.token) {",
+                  "    pm.collectionVariables.set('token', response.data.token);",
+                  "    pm.collectionVariables.set('userId', response.data.user.user_id);",
+                  "    console.log('Token saved successfully');",
+                  "}",
+                  "pm.test('Login successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"admin\",\n    \"password\": \"admin123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. User Management (Admin Only)",
+      "item": [
+        {
+          "name": "Create New User",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/user/create",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"newuser\",\n    \"password\": \"pass123\",\n    \"email\": \"newuser@example.com\",\n    \"full_name\": \"New User\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Assign Formats to User",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/user/assign-formats",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"newuser\",\n    \"format_codes\": [\"RSS_VERSE\", \"XML_BIBLESHOW\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Assign Versions to User",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/user/assign-versions",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"newuser\",\n    \"version_codes\": [\"KJV\"],\n    \"default_version\": \"KJV\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create User with Everything",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/user/create-full",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"poweruser\",\n    \"password\": \"power123\",\n    \"email\": \"power@example.com\",\n    \"full_name\": \"Power User\",\n    \"format_codes\": [\"RSS_VERSE\", \"RSS_REFERENCE\", \"XML_BIBLESHOW\", \"JSON_BIBLE\"],\n    \"version_codes\": [\"KJV\", \"TAM\"],\n    \"default_version\": \"KJV\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/user/newuser",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get Available Formats",
+          "request": { "method": "GET", "url": "{{baseUrl}}/user/formats/list" }
+        },
+        {
+          "name": "Get Available Versions",
+          "request": { "method": "GET", "url": "{{baseUrl}}/user/versions/list" }
+        }
+      ]
+    },
+    {
+      "name": "3. Bible API",
+      "item": [
+        {
+          "name": "Get Single Verse",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/kjv/verse/JHN/3/16",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get Verse Range",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/kjv/range/JHN/3/1/3/16",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get Complete Chapter",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/kjv/chapter/PSA/23",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Search Verses",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/kjv/search/love?limit=10",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get Books List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/kjv/books",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. RSS Feeds",
+      "item": [
+        {
+          "name": "Get Verse RSS",
+          "request": { "method": "GET", "url": "{{baseUrl}}/rss/admin/kjv/verse" }
+        },
+        {
+          "name": "Get Reference RSS",
+          "request": { "method": "GET", "url": "{{baseUrl}}/rss/admin/kjv/reference" }
+        }
+      ]
+    },
+    {
+      "name": "5. Formats",
+      "item": [
+        {
+          "name": "Get User Formats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/user/formats",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get BibleShow XML",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bibleshow/xml?version=kjv",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get BibleShow JSON",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bibleshow/json",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Admin Panel",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/users",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Get System Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/stats",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        },
+        {
+          "name": "Toggle User Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/admin/users/newuser/toggle-status",
+            "auth": { "type": "bearer", "bearer": ["{{token}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. System",
+      "item": [
+        { "name": "Health Check", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
+        { "name": "API Info", "request": { "method": "GET", "url": "{{baseUrl}}/" } },
+        { "name": "Debug Info", "request": { "method": "GET", "url": "{{baseUrl}}/debug" } }
+      ]
+    }
+  ]
+}
